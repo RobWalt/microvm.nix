@@ -1,17 +1,19 @@
 # Closure size and startup time optimization for disposable use-cases
-{ config, options, lib, ... }:
+{
+  config,
+  options,
+  lib,
+  ...
+}:
 
 let
   cfg = config.microvm;
 
-
   canSwitchViaSsh =
-    config.services.openssh.enable &&
-    # Is the /nix/store mounted from the host?
-    builtins.any ({ source, ... }:
-      source == "/nix/store"
-    ) config.microvm.shares;
-
+    config.services.openssh.enable
+    &&
+      # Is the /nix/store mounted from the host?
+      builtins.any ({ source, ... }: source == "/nix/store") config.microvm.shares;
 in
 {
   options.microvm.optimize = {
@@ -45,13 +47,10 @@ in
         "cloud-hypervisor"
         "firecracker"
         "stratovirt"
-      ]);
+      ]
+    );
 
-    nixpkgs.overlays = [
-      (final: prev: {
-        stratovirt = prev.stratovirt.override { gtk3 = null; };
-      })
-    ];
+    nixpkgs.overlays = [ (final: prev: { stratovirt = prev.stratovirt.override { gtk3 = null; }; }) ];
 
     # networkd is used due to some strange startup time issues with nixos's
     # homegrown dhcp implementation

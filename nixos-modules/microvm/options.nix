@@ -1,8 +1,12 @@
-{ config, options, lib, pkgs, ... }:
+{
+  config,
+  options,
+  lib,
+  pkgs,
+  ...
+}:
 let
-  self-lib = import ../../lib {
-    nixpkgs-lib = lib;
-  };
+  self-lib = import ../../lib { nixpkgs-lib = lib; };
 
   hostName = config.networking.hostName or "$HOSTNAME";
 in
@@ -104,24 +108,29 @@ in
     };
 
     forwardPorts = mkOption {
-      type = types.listOf
-        (types.submodule {
+      type = types.listOf (
+        types.submodule {
           options.from = mkOption {
-            type = types.enum [ "host" "guest" ];
+            type = types.enum [
+              "host"
+              "guest"
+            ];
             default = "host";
-            description =
-              ''
-                Controls the direction in which the ports are mapped:
+            description = ''
+              Controls the direction in which the ports are mapped:
 
-                - <literal>"host"</literal> means traffic from the host ports
-                is forwarded to the given guest port.
+              - <literal>"host"</literal> means traffic from the host ports
+              is forwarded to the given guest port.
 
-                - <literal>"guest"</literal> means traffic from the guest ports
-                is forwarded to the given host port.
-              '';
+              - <literal>"guest"</literal> means traffic from the guest ports
+              is forwarded to the given host port.
+            '';
           };
           options.proto = mkOption {
-            type = types.enum [ "tcp" "udp" ];
+            type = types.enum [
+              "tcp"
+              "udp"
+            ];
             default = "tcp";
             description = "The protocol to forward.";
           };
@@ -143,10 +152,10 @@ in
             type = types.port;
             description = "The guest port to be mapped.";
           };
-        });
-      default = [];
-      example = lib.literalExpression
-        ''
+        }
+      );
+      default = [ ];
+      example = lib.literalExpression ''
         [ # forward local port 2222 -> 22, to ssh into the VM
           { from = "host"; host.port = 2222; guest.port = 22; }
 
@@ -156,174 +165,214 @@ in
             host.address = "127.0.0.1"; host.port = 80;
           }
         ]
-        '';
-      description =
-        ''
-          When using the SLiRP user networking (default), this option allows to
-          forward ports to/from the host/guest.
+      '';
+      description = ''
+        When using the SLiRP user networking (default), this option allows to
+        forward ports to/from the host/guest.
 
-          <warning><para>
-            If the NixOS firewall on the virtual machine is enabled, you also
-            have to open the guest ports to enable the traffic between host and
-            guest.
-          </para></warning>
+        <warning><para>
+          If the NixOS firewall on the virtual machine is enabled, you also
+          have to open the guest ports to enable the traffic between host and
+          guest.
+        </para></warning>
 
-          <note><para>Currently QEMU supports only IPv4 forwarding.</para></note>
-        '';
+        <note><para>Currently QEMU supports only IPv4 forwarding.</para></note>
+      '';
     };
     volumes = mkOption {
       description = "Disk images";
-      default = [];
-      type = with types; listOf (submodule {
-        options = {
-          image = mkOption {
-            type = str;
-            description = "Path to disk image on the host";
-          };
-          label = mkOption {
-            type = nullOr str;
-            default = null;
-            description = "Label of the volume, if any. Only applicable if autoCreate is true; otherwise labeling of the volume must be done manually";
-          };
-          mountPoint = mkOption {
-            type = nullOr path;
-            description = "If and where to mount the volume inside the container";
-          };
-          size = mkOption {
-            type = int;
-            description = "Volume size if created automatically";
-          };
-          autoCreate = mkOption {
-            type = bool;
-            default = true;
-            description = "Created image on host automatically before start?";
-          };
-          fsType = mkOption {
-            type = str;
-            default = "ext4";
-            description = "File system for automatic creation and mounting";
-          };
-        };
-      });
+      default = [ ];
+      type =
+        with types;
+        listOf (
+          submodule {
+            options = {
+              image = mkOption {
+                type = str;
+                description = "Path to disk image on the host";
+              };
+              label = mkOption {
+                type = nullOr str;
+                default = null;
+                description = "Label of the volume, if any. Only applicable if autoCreate is true; otherwise labeling of the volume must be done manually";
+              };
+              mountPoint = mkOption {
+                type = nullOr path;
+                description = "If and where to mount the volume inside the container";
+              };
+              size = mkOption {
+                type = int;
+                description = "Volume size if created automatically";
+              };
+              autoCreate = mkOption {
+                type = bool;
+                default = true;
+                description = "Created image on host automatically before start?";
+              };
+              fsType = mkOption {
+                type = str;
+                default = "ext4";
+                description = "File system for automatic creation and mounting";
+              };
+            };
+          }
+        );
     };
 
     interfaces = mkOption {
       description = "Network interfaces";
-      default = [];
-      type = with types; listOf (submodule {
-        options = {
-          type = mkOption {
-            type = enum [ "user" "tap" "macvtap" "bridge" ];
-            description = ''
-              Interface type
-            '';
-          };
-          id = mkOption {
-            type = str;
-            description = ''
-              Interface name on the host
-            '';
-          };
-          macvtap.link = mkOption {
-            type = nullOr str;
-            default = null;
-            description = ''
-              Attach network interface to host interface for type = "macvlan"
-            '';
-          };
-          macvtap.mode = mkOption {
-            type = nullOr (enum ["private" "vepa" "bridge" "passthru" "source"]);
-            default = null;
-            description = ''
-              The MACVLAN mode to use
-            '';
-          };
-          bridge = mkOption {
-            type = nullOr str;
-            default = null;
-            description = ''
-              Attach network interface to host bridge interface for type = "bridge"
-            '';
-          };
-          mac = mkOption {
-            type = str;
-            description = ''
-              MAC address of the guest's network interface
-            '';
-          };
-        };
-      });
+      default = [ ];
+      type =
+        with types;
+        listOf (
+          submodule {
+            options = {
+              type = mkOption {
+                type = enum [
+                  "user"
+                  "tap"
+                  "macvtap"
+                  "bridge"
+                ];
+                description = ''
+                  Interface type
+                '';
+              };
+              id = mkOption {
+                type = str;
+                description = ''
+                  Interface name on the host
+                '';
+              };
+              macvtap.link = mkOption {
+                type = nullOr str;
+                default = null;
+                description = ''
+                  Attach network interface to host interface for type = "macvlan"
+                '';
+              };
+              macvtap.mode = mkOption {
+                type = nullOr (
+                  enum [
+                    "private"
+                    "vepa"
+                    "bridge"
+                    "passthru"
+                    "source"
+                  ]
+                );
+                default = null;
+                description = ''
+                  The MACVLAN mode to use
+                '';
+              };
+              bridge = mkOption {
+                type = nullOr str;
+                default = null;
+                description = ''
+                  Attach network interface to host bridge interface for type = "bridge"
+                '';
+              };
+              mac = mkOption {
+                type = str;
+                description = ''
+                  MAC address of the guest's network interface
+                '';
+              };
+            };
+          }
+        );
     };
 
     shares = mkOption {
       description = "Shared directory trees";
-      default = [];
-      type = with types; listOf (submodule ({ config, ... }: {
-        options = {
-          tag = mkOption {
-            type = str;
-            description = "Unique virtiofs daemon tag";
-          };
-          socket = mkOption {
-            type = nullOr str;
-            default =
-              if config.proto == "virtiofs"
-              then "${hostName}-virtiofs-${config.tag}.sock"
-              else null;
-            description = "Socket for communication with virtiofs daemon";
-          };
-          source = mkOption {
-            type = nonEmptyStr;
-            description = "Path to shared directory tree";
-          };
-          securityModel = mkOption {
-            type = enum [ "passthrough" "none" "mapped" "mapped-file" ];
-            default = "none";
-            description = "What security model to use for the shared directory";
-          };
-          mountPoint = mkOption {
-            type = path;
-            description = "Where to mount the share inside the container";
-          };
-          proto = mkOption {
-            type = enum [ "9p" "virtiofs" ];
-            description = "Protocol for this share";
-            default = "9p";
-          };
-        };
-      }));
+      default = [ ];
+      type =
+        with types;
+        listOf (
+          submodule (
+            { config, ... }:
+            {
+              options = {
+                tag = mkOption {
+                  type = str;
+                  description = "Unique virtiofs daemon tag";
+                };
+                socket = mkOption {
+                  type = nullOr str;
+                  default = if config.proto == "virtiofs" then "${hostName}-virtiofs-${config.tag}.sock" else null;
+                  description = "Socket for communication with virtiofs daemon";
+                };
+                source = mkOption {
+                  type = nonEmptyStr;
+                  description = "Path to shared directory tree";
+                };
+                securityModel = mkOption {
+                  type = enum [
+                    "passthrough"
+                    "none"
+                    "mapped"
+                    "mapped-file"
+                  ];
+                  default = "none";
+                  description = "What security model to use for the shared directory";
+                };
+                mountPoint = mkOption {
+                  type = path;
+                  description = "Where to mount the share inside the container";
+                };
+                proto = mkOption {
+                  type = enum [
+                    "9p"
+                    "virtiofs"
+                  ];
+                  description = "Protocol for this share";
+                  default = "9p";
+                };
+              };
+            }
+          )
+        );
     };
 
     devices = mkOption {
       description = "PCI/USB devices that are passed from the host to the MicroVM";
-      default = [];
-      example = literalExpression ''[ {
-        bus = "pci";
-        path = "0000:01:00.0";
-      } {
-        bus = "pci";
-        path = "0000:01:01.0";
-      } {
-        # QEMU only
-        bus = "usb";
-        path = "vendorid=0xabcd,productid=0x0123";
-      } ]'';
-      type = with types; listOf (submodule {
-        options = {
-          bus = mkOption {
-            type = enum [ "pci" "usb" ];
-            description = ''
-              Device is either on the `pci` or the `usb` bus
-            '';
-          };
-          path = mkOption {
-            type = str;
-            description = ''
-              Identification of the device on its bus
-            '';
-          };
-        };
-      });
+      default = [ ];
+      example = literalExpression ''
+        [ {
+                bus = "pci";
+                path = "0000:01:00.0";
+              } {
+                bus = "pci";
+                path = "0000:01:01.0";
+              } {
+                # QEMU only
+                bus = "usb";
+                path = "vendorid=0xabcd,productid=0x0123";
+              } ]'';
+      type =
+        with types;
+        listOf (
+          submodule {
+            options = {
+              bus = mkOption {
+                type = enum [
+                  "pci"
+                  "usb"
+                ];
+                description = ''
+                  Device is either on the `pci` or the `usb` bus
+                '';
+              };
+              path = mkOption {
+                type = str;
+                description = ''
+                  Identification of the device on its bus
+                '';
+              };
+            };
+          }
+        );
     };
 
     vsock.cid = mkOption {
@@ -347,9 +396,7 @@ in
 
     storeOnDisk = mkOption {
       type = types.bool;
-      default = ! lib.any ({ source, ... }:
-        source == "/nix/store"
-      ) config.microvm.shares;
+      default = !lib.any ({ source, ... }: source == "/nix/store") config.microvm.shares;
       description = "Whether to boot with the storeDisk, that is, unless the host's /nix/store is a microvm.share.";
     };
 
@@ -395,10 +442,12 @@ in
 
     qemu.machine = mkOption {
       type = types.str;
-      default = {
-        x86_64-linux = "microvm";
-        aarch64-linux = "virt";
-      }.${pkgs.system};
+      default =
+        {
+          x86_64-linux = "microvm";
+          aarch64-linux = "virt";
+        }
+        .${pkgs.system};
       description = ''
         QEMU machine model, eg. `microvm`, or `q35`
 
@@ -414,7 +463,7 @@ in
 
     qemu.extraArgs = mkOption {
       type = with types; listOf str;
-      default = [];
+      default = [ ];
       description = "Extra arguments to pass to qemu.";
     };
 
@@ -428,13 +477,13 @@ in
 
     cloud-hypervisor.extraArgs = mkOption {
       type = with types; listOf str;
-      default = [];
+      default = [ ];
       description = "Extra arguments to pass to cloud-hypervisor.";
     };
 
     crosvm.extraArgs = mkOption {
       type = with types; listOf str;
-      default = [];
+      default = [ ];
       description = "Extra arguments to pass to crosvm.";
     };
 

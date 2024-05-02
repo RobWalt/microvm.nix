@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   inherit (config.networking) hostName;
@@ -6,9 +11,7 @@ let
   inherit (config.microvm) declaredRunner;
   inherit (config) nix;
 
-  closureInfo = pkgs.closureInfo {
-    rootPaths = [ config.system.build.toplevel ];
-  };
+  closureInfo = pkgs.closureInfo { rootPaths = [ config.system.build.toplevel ]; };
 
   # Don't build these but get the derivation paths for building on a
   # remote host, and for switching via SSH.
@@ -23,14 +26,13 @@ let
   };
 
   canSwitchViaSsh =
-    config.system.switch.enable &&
-    # MicroVM must be reachable through SSH
-    config.services.openssh.enable &&
-    # Is the /nix/store mounted from the host?
-    builtins.any ({ source, ... }:
-      source == "/nix/store"
-    ) config.microvm.shares;
-
+    config.system.switch.enable
+    &&
+      # MicroVM must be reachable through SSH
+      config.services.openssh.enable
+    &&
+      # Is the /nix/store mounted from the host?
+      builtins.any ({ source, ... }: source == "/nix/store") config.microvm.shares;
 in
 {
   # Declarations with documentation
@@ -125,11 +127,14 @@ in
 
       echo "Building toplevel ${paths.toplevelOut}"
       nix build -L --accept-flake-config --no-link \
-        ${with paths; lib.concatMapStringsSep " " (drv: "'${drv}^out'") [
-          nixDrv
-          closureInfoDrv
-          toplevelDrv
-        ]}
+        ${
+          with paths;
+          lib.concatMapStringsSep " " (drv: "'${drv}^out'") [
+            nixDrv
+            closureInfoDrv
+            toplevelDrv
+          ]
+        }
       echo "Building MicroVM runner for ${hostName}"
       nix build -L --accept-flake-config -o new \
         "${paths.runnerDrv}^out"
@@ -182,23 +187,25 @@ in
       ''
     );
 
-    rebuild = with config.microvm.deploy; pkgs.writeScriptBin "microvm-rebuild" ''
-      set -eou pipefail
+    rebuild =
+      with config.microvm.deploy;
+      pkgs.writeScriptBin "microvm-rebuild" ''
+        set -eou pipefail
 
-      HOST="$1"
-      shift
-      TARGET="$1"
-      shift
-      if [[ -z "$HOST" || -z "$TARGET" ]]; then
-        echo "Usage: $0 root@<host> root@<target> switch"
-        exit 1
-      fi
+        HOST="$1"
+        shift
+        TARGET="$1"
+        shift
+        if [[ -z "$HOST" || -z "$TARGET" ]]; then
+          echo "Usage: $0 root@<host> root@<target> switch"
+          exit 1
+        fi
 
-      ${lib.getExe installOnHost} "$HOST"
-      ${if canSwitchViaSsh
-        then ''${lib.getExe sshSwitch} "$TARGET"''
-        else ''ssh "$HOST" -- systemctl restart "microvm@${hostName}.service"''
-       }
-    '';
+        ${lib.getExe installOnHost} "$HOST"
+        ${if canSwitchViaSsh then
+          ''${lib.getExe sshSwitch} "$TARGET"''
+        else
+          ''ssh "$HOST" -- systemctl restart "microvm@${hostName}.service"''}
+      '';
   };
 }

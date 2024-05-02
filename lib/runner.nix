@@ -1,15 +1,14 @@
-{ pkgs
-, microvmConfig
-, toplevel
+{
+  pkgs,
+  microvmConfig,
+  toplevel,
 }:
 
 let
   inherit (pkgs) lib writeScriptBin;
 
   inherit (import ./. { nixpkgs-lib = lib; }) createVolumesScript makeMacvtap;
-  inherit (makeMacvtap {
-    inherit microvmConfig hypervisorConfig;
-  }) openMacvtapFds macvtapFds;
+  inherit (makeMacvtap { inherit microvmConfig hypervisorConfig; }) openMacvtapFds macvtapFds;
 
   hypervisorConfig = import (./runners + "/${microvmConfig.hypervisor}.nix") {
     inherit pkgs microvmConfig macvtapFds;
@@ -20,8 +19,7 @@ let
   preStart = hypervisorConfig.preStart or microvmConfig.preStart;
   tapMultiQueue = hypervisorConfig.tapMultiQueue or false;
 
-  execArg = lib.optionalString microvmConfig.prettyProcnames
-    ''-a "microvm@${microvmConfig.hostName}"'';
+  execArg = lib.optionalString microvmConfig.prettyProcnames ''-a "microvm@${microvmConfig.hostName}"'';
 
   runScriptBin = pkgs.buildPackages.writeScriptBin "microvm-run" ''
     #! ${pkgs.runtimeShell} -e
@@ -53,61 +51,89 @@ let
 in
 
 pkgs.buildPackages.runCommand "microvm-${microvmConfig.hypervisor}-${microvmConfig.hostName}"
-{
-  # for `nix run`
-  meta.mainProgram = "microvm-run";
-  passthru = {
-    inherit canShutdown supportsNotifySocket;
-    inherit (microvmConfig) hypervisor;
-  };
-} ''
-  mkdir -p $out/bin
+  {
+    # for `nix run`
+    meta.mainProgram = "microvm-run";
+    passthru = {
+      inherit canShutdown supportsNotifySocket;
+      inherit (microvmConfig) hypervisor;
+    };
+  }
+  ''
+    mkdir -p $out/bin
 
-  ln -s ${runScriptBin}/bin/microvm-run $out/bin/microvm-run
-  ${if canShutdown
-    then "ln -s ${shutdownScriptBin}/bin/microvm-shutdown $out/bin/microvm-shutdown"
-    else ""}
-  ${lib.optionalString ((hypervisorConfig.setBalloonScript or null) != null) ''
-    ln -s ${balloonScriptBin}/bin/microvm-balloon $out/bin/microvm-balloon
-  ''}
+    ln -s ${runScriptBin}/bin/microvm-run $out/bin/microvm-run
+    ${if canShutdown then
+      "ln -s ${shutdownScriptBin}/bin/microvm-shutdown $out/bin/microvm-shutdown"
+    else
+      ""}
+    ${lib.optionalString ((hypervisorConfig.setBalloonScript or null) != null) ''
+      ln -s ${balloonScriptBin}/bin/microvm-balloon $out/bin/microvm-balloon
+    ''}
 
-  mkdir -p $out/share/microvm
-  ln -s ${toplevel} $out/share/microvm/system
+    mkdir -p $out/share/microvm
+    ln -s ${toplevel} $out/share/microvm/system
 
-  echo vnet_hdr > $out/share/microvm/tap-flags
-  ${lib.optionalString tapMultiQueue ''
-    echo multi_queue >> $out/share/microvm/tap-flags
-  ''}
-  ${lib.concatMapStringsSep " " (interface:
-    lib.optionalString (interface.type == "tap" && interface ? id) ''
-      echo "${interface.id}" >> $out/share/microvm/tap-interfaces
-    '') microvmConfig.interfaces}
+    echo vnet_hdr > $out/share/microvm/tap-flags
+    ${lib.optionalString tapMultiQueue ''
+      echo multi_queue >> $out/share/microvm/tap-flags
+    ''}
+    ${lib.concatMapStringsSep " "
+      (
+        interface:
+        lib.optionalString (interface.type == "tap" && interface ? id) ''
+          echo "${interface.id}" >> $out/share/microvm/tap-interfaces
+        ''
+      )
+      microvmConfig.interfaces}
 
-  ${lib.concatMapStringsSep " " (interface:
-    lib.optionalString (
-      interface.type == "macvtap" &&
-      interface ? id &&
-      (interface.macvtap.link or null) != null &&
-      (interface.macvtap.mode or null) != null
-    ) ''
-      echo "${builtins.concatStringsSep " " [
-        interface.id
-        interface.mac
-        interface.macvtap.link
-        (builtins.toString interface.macvtap.mode)
-      ]}" >> $out/share/microvm/macvtap-interfaces
-    '') microvmConfig.interfaces}
+    ${lib.concatMapStringsSep " "
+      (
+        interface:
+        lib.optionalString
+          (
+            interface.type == "macvtap"
+            && interface ? id
+            && (interface.macvtap.link or null) != null
+            && (interface.macvtap.mode or null) != null
+          )
+          ''
+            echo "${
+              builtins.concatStringsSep " " [
+                interface.id
+                interface.mac
+                interface.macvtap.link
+                (builtins.toString interface.macvtap.mode)
+              ]
+            }" >> $out/share/microvm/macvtap-interfaces
+          ''
+      )
+      microvmConfig.interfaces}
 
 
-  ${lib.concatMapStrings ({ tag, socket, source, proto, ... }:
-      lib.optionalString (proto == "virtiofs") ''
-        mkdir -p $out/share/microvm/virtiofs/${tag}
-        echo "${socket}" > $out/share/microvm/virtiofs/${tag}/socket
-        echo "${source}" > $out/share/microvm/virtiofs/${tag}/source
-      ''
-    ) microvmConfig.shares}
+    ${lib.concatMapStrings
+      (
+        {
+          tag,
+          socket,
+          source,
+          proto,
+          ...
+        }:
+        lib.optionalString (proto == "virtiofs") ''
+          mkdir -p $out/share/microvm/virtiofs/${tag}
+          echo "${socket}" > $out/share/microvm/virtiofs/${tag}/socket
+          echo "${source}" > $out/share/microvm/virtiofs/${tag}/source
+        ''
+      )
+      microvmConfig.shares}
 
-  ${lib.concatMapStrings ({ bus, path, ... }: ''
-    echo "${path}" >> $out/share/microvm/${bus}-devices
-  '') microvmConfig.devices}
-''
+    ${lib.concatMapStrings
+      (
+        { bus, path, ... }:
+        ''
+          echo "${path}" >> $out/share/microvm/${bus}-devices
+        ''
+      )
+      microvmConfig.devices}
+  ''

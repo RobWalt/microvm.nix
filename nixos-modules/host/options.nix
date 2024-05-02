@@ -22,99 +22,120 @@
     };
 
     vms = mkOption {
-      type = with types; attrsOf (submodule ({ config, name, ... }: {
-        options = {
-          config = mkOption {
-            description = lib.mdDoc ''
-              A specification of the desired configuration of this MicroVM,
-              as a NixOS module, for building **without** a flake.
-            '';
-            default = null;
-            type = nullOr (lib.mkOptionType {
-              name = "Toplevel NixOS config";
-              merge = loc: defs: (import "${config.nixpkgs}/nixos/lib/eval-config.nix" {
-                modules =
-                  let
-                    extraConfig = ({ lib, ... }: {
-                      _file = "module at ${__curPos.file}:${toString __curPos.line}";
-                      config = {
-                        networking.hostName = lib.mkDefault name;
-                      };
-                    });
-                  in [
-                    extraConfig
-                    ../microvm
-                  ] ++ (map (x: x.value) defs);
-                prefix = [ "microvm" "vms" name "config" ];
-                inherit (config) specialArgs pkgs;
-                system = if config.pkgs != null then config.pkgs.system else pkgs.system;
-              });
-            });
-          };
+      type =
+        with types;
+        attrsOf (
+          submodule (
+            { config, name, ... }:
+            {
+              options = {
+                config = mkOption {
+                  description = lib.mdDoc ''
+                    A specification of the desired configuration of this MicroVM,
+                    as a NixOS module, for building **without** a flake.
+                  '';
+                  default = null;
+                  type = nullOr (
+                    lib.mkOptionType {
+                      name = "Toplevel NixOS config";
+                      merge =
+                        loc: defs:
+                        (import "${config.nixpkgs}/nixos/lib/eval-config.nix" {
+                          modules =
+                            let
+                              extraConfig = (
+                                { lib, ... }:
+                                {
+                                  _file = "module at ${__curPos.file}:${toString __curPos.line}";
+                                  config = {
+                                    networking.hostName = lib.mkDefault name;
+                                  };
+                                }
+                              );
+                            in
+                            [
+                              extraConfig
+                              ../microvm
+                            ]
+                            ++ (map (x: x.value) defs);
+                          prefix = [
+                            "microvm"
+                            "vms"
+                            name
+                            "config"
+                          ];
+                          inherit (config) specialArgs pkgs;
+                          system = if config.pkgs != null then config.pkgs.system else pkgs.system;
+                        });
+                    }
+                  );
+                };
 
-          nixpkgs = mkOption {
-            type = types.path;
-            default = if config.pkgs != null then config.pkgs.path else pkgs.path;
-            defaultText = literalExpression "pkgs.path";
-            description = lib.mdDoc ''
-              This option is only respected when `config` is specified.
-              The nixpkgs path to use for the MicroVM. Defaults to the host's nixpkgs.
-            '';
-          };
+                nixpkgs = mkOption {
+                  type = types.path;
+                  default = if config.pkgs != null then config.pkgs.path else pkgs.path;
+                  defaultText = literalExpression "pkgs.path";
+                  description = lib.mdDoc ''
+                    This option is only respected when `config` is specified.
+                    The nixpkgs path to use for the MicroVM. Defaults to the host's nixpkgs.
+                  '';
+                };
 
-          pkgs = mkOption {
-            type = types.nullOr types.unspecified;
-            default = pkgs;
-            defaultText = literalExpression "pkgs";
-            description = lib.mdDoc ''
-              This option is only respected when `config` is specified.
-              The package set to use for the MicroVM. Must be a nixpkgs package set with the microvm overlay. Determines the system of the MicroVM.
-              If set to null, a new package set will be instantiated.
-            '';
-          };
+                pkgs = mkOption {
+                  type = types.nullOr types.unspecified;
+                  default = pkgs;
+                  defaultText = literalExpression "pkgs";
+                  description = lib.mdDoc ''
+                    This option is only respected when `config` is specified.
+                    The package set to use for the MicroVM. Must be a nixpkgs package set with the microvm overlay. Determines the system of the MicroVM.
+                    If set to null, a new package set will be instantiated.
+                  '';
+                };
 
-          specialArgs = mkOption {
-            type = types.attrsOf types.unspecified;
-            default = {};
-            description = lib.mdDoc ''
-              This option is only respected when `config` is specified.
-              A set of special arguments to be passed to NixOS modules.
-              This will be merged into the `specialArgs` used to evaluate
-              the NixOS configurations.
-            '';
-          };
+                specialArgs = mkOption {
+                  type = types.attrsOf types.unspecified;
+                  default = { };
+                  description = lib.mdDoc ''
+                    This option is only respected when `config` is specified.
+                    A set of special arguments to be passed to NixOS modules.
+                    This will be merged into the `specialArgs` used to evaluate
+                    the NixOS configurations.
+                  '';
+                };
 
-          flake = mkOption {
-            description = "Source flake for declarative build";
-            type = nullOr path;
-            default = null;
-          };
+                flake = mkOption {
+                  description = "Source flake for declarative build";
+                  type = nullOr path;
+                  default = null;
+                };
 
-          updateFlake = mkOption {
-            description = "Source flake to store for later imperative update";
-            type = nullOr str;
-            default = null;
-          };
+                updateFlake = mkOption {
+                  description = "Source flake to store for later imperative update";
+                  type = nullOr str;
+                  default = null;
+                };
 
-          autostart = mkOption {
-            description = "Add this MicroVM to config.microvm.autostart?";
-            type = bool;
-            default = true;
-          };
+                autostart = mkOption {
+                  description = "Add this MicroVM to config.microvm.autostart?";
+                  type = bool;
+                  default = true;
+                };
 
-          restartIfChanged = mkOption {
-            type = types.bool;
-            default = config.config != null;
-            description = ''
-              Restart this MicroVM's services if the systemd units are changed,
-              i.e. if it has been updated by rebuilding the host.
+                restartIfChanged = mkOption {
+                  type = types.bool;
+                  default = config.config != null;
+                  description = ''
+                    Restart this MicroVM's services if the systemd units are changed,
+                    i.e. if it has been updated by rebuilding the host.
 
-              Defaults to true for fully-declarative MicroVMs.
-            '';
-          };
-        };
-      }));
-      default = {};
+                    Defaults to true for fully-declarative MicroVMs.
+                  '';
+                };
+              };
+            }
+          )
+        );
+      default = { };
       description = ''
         The MicroVMs that shall be built declaratively with the host NixOS.
       '';
@@ -130,7 +151,7 @@
 
     autostart = mkOption {
       type = with types; listOf str;
-      default = [];
+      default = [ ];
       description = ''
         MicroVMs to start by default.
 
@@ -139,9 +160,15 @@
     };
 
     virtiofsd.inodeFileHandles = mkOption {
-      type = with types; nullOr (enum [
-        "never" "prefer" "mandatory"
-      ]);
+      type =
+        with types;
+        nullOr (
+          enum [
+            "never"
+            "prefer"
+            "mandatory"
+          ]
+        );
       default = null;
       description = ''
         When to use file handles to reference inodes instead of O_PATH file descriptors
